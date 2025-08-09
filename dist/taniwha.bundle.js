@@ -119,8 +119,11 @@
     try {
       window.TANIWHA = window.TANIWHA || {};
       window.TANIWHA.openManual = () => app.openManual();
-      if (window.TANIWHA_AUTO_MANUAL === true) {
-        app.openManual();
+      const params = new URLSearchParams(location.search);
+      const manualParam = (params.get('taniwha') === 'manual') || (params.get('taniwha_manual') === '1');
+      if (window.TANIWHA_AUTO_MANUAL === true || manualParam) {
+        // Defer to allow initial render to complete
+        setTimeout(()=> app.openManual(), 0);
       }
     } catch(_) { /* ignore */ }
   }
