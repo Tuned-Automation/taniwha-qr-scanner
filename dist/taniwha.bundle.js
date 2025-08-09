@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-//just testing that the update worked  
+
   const DEFAULT_CONFIG = {
     MAKE_WEBHOOK_URL: 'https://hook.us1.make.com/pzqgij335egnnf1xkhwtaj8qrikkordk',
     CORS_MODE: 'cors',
@@ -114,6 +114,15 @@
 
     const app = new App(container);
     app.render();
+
+    // Expose a tiny control API for integration pages
+    try {
+      window.TANIWHA = window.TANIWHA || {};
+      window.TANIWHA.openManual = () => app.openManual();
+      if (window.TANIWHA_AUTO_MANUAL === true) {
+        app.openManual();
+      }
+    } catch(_) { /* ignore */ }
   }
 
   async function loadZXing(){
@@ -295,6 +304,16 @@
     setState(s){ this.state = s; this.render(); }
 
     announce(text){ if (this.liveRegion){ this.liveRegion.textContent = text; } }
+
+    // Public: open the manual entry form programmatically
+    openManual(){
+      // Render the idle card, then append the manual row
+      this.setState(State.Idle);
+      const card = this.container.querySelector('.taniwha-card');
+      if (card) {
+        this.renderManual(card);
+      }
+    }
 
     render(){
       this.container.innerHTML = '';
