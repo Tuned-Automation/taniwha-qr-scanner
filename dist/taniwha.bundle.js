@@ -115,45 +115,51 @@
     const app = new App(container);
     app.render();
 
-    // Add global click handler for button issues
-    shadow.addEventListener('click', function(e) {
-      const target = e.target;
-      console.log('Shadow click detected on:', target.tagName, target.textContent);
-      if (target && target.tagName === 'BUTTON') {
-        console.log('Button clicked:', target.textContent);
-        if (target.textContent && target.textContent.toLowerCase().includes('enter code instead')) {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('Forcing manual entry via global handler');
-          app.openManual();
-        }
-      }
-    });
-
-    // Force manual entry after a short delay
+    // DIRECT MANUAL ENTRY - bypass all the complexity
     setTimeout(() => {
-      console.log('Auto-forcing manual entry...');
-      app.openManual();
-    }, 1500);
+      console.log('Direct manual entry injection...');
+      const card = container.querySelector('.taniwha-card');
+      if (card) {
+        // Clear existing buttons
+        const existing = card.querySelector('.taniwha-actions');
+        if (existing) existing.remove();
+        
+        // Create manual input directly
+        const row = createEl('div', 'taniwha-row taniwha-actions');
+        const input = createEl('input', 'taniwha-input taniwha-grow', { 
+          type: 'text', 
+          placeholder: 'Enter token (vch_...) or URL',
+          style: 'padding: 12px; font-size: 16px; border: 2px solid #666; border-radius: 8px; margin-right: 10px;'
+        });
+        const submit = createEl('button', 'taniwha-btn primary', {
+          style: 'padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;'
+        }); 
+        submit.textContent = 'Validate';
+        
+        submit.onclick = function(e) {
+          console.log('Direct validate clicked!');
+          const token = extractToken(input.value);
+          console.log('Extracted token:', token);
+          if (!token) {
+            alert('Please enter a valid token starting with vch_');
+            return;
+          }
+          app.validateToken(token);
+        };
+        
+        row.appendChild(input);
+        row.appendChild(submit);
+        card.appendChild(row);
+        
+        input.focus();
+        console.log('Manual input directly injected and ready!');
+      }
+    }, 500);
 
     // Expose a tiny control API for integration pages
     try {
       window.TANIWHA = window.TANIWHA || {};
-      window.TANIWHA.openManual = () => {
-        console.log('window.TANIWHA.openManual called');
-        return app.openManual();
-      };
-      window.TANIWHA.app = app; // DEBUG: expose app for debugging
-      const params = new URLSearchParams(location.search);
-      const manualParam = (params.get('taniwha') === 'manual') || (params.get('taniwha_manual') === '1');
-      if (window.TANIWHA_AUTO_MANUAL === true || manualParam) {
-        // Defer to allow initial render to complete
-        console.log('Auto-triggering openManual via TANIWHA_AUTO_MANUAL');
-        setTimeout(()=> {
-          console.log('setTimeout firing, calling app.openManual');
-          app.openManual();
-        }, 0);
-      }
+      window.TANIWHA.app = app;
     } catch(e) { 
       console.error('Error in TANIWHA setup:', e);
     }
