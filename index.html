@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taniwha QR Scanner - Live Test</title>
+    <style>
+        body { 
+            margin: 20px; 
+            font-family: Arial, sans-serif; 
+            background: #f0f0f0; 
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        #taniwha-root { 
+            margin: 20px 0;
+            min-height: 200px;
+            border: 2px dashed #ddd;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .test-buttons {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .test-btn {
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        .status {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+    <link rel="stylesheet" href="./dist/taniwha.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Taniwha QR Scanner - Test Page</h1>
+        <p>This is a standalone test to verify the widget works outside of Webflow.</p>
+        
+        <h2>Widget Area:</h2>
+        <div id="taniwha-root"></div>
+        
+        <h2>Test Controls:</h2>
+        <div class="test-buttons">
+            <button class="test-btn" onclick="openManual()">📝 Force Manual Entry</button>
+            <button class="test-btn" onclick="testAPI()">🔧 Test API</button>
+            <button class="test-btn" onclick="testWebhook()">🌐 Test Webhook</button>
+            <button class="test-btn" onclick="clearStatus()">🗑️ Clear Log</button>
+        </div>
+        
+        <h2>Debug Output:</h2>
+        <div id="status" class="status">Loading...</div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            statusEl.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+        
+        function clearStatus() {
+            statusEl.textContent = '';
+        }
+        
+        // Configure the widget
+        window.TANIWHA_CONFIG_OVERRIDE = {
+            MAKE_WEBHOOK_URL: "https://hook.us1.make.com/pzqgij335egnnf1xkhwtaj8qrikkordk",
+            CORS_MODE: "cors"
+        };
+        
+        function openManual() {
+            if (window.TANIWHA && window.TANIWHA.openManual) {
+                window.TANIWHA.openManual();
+                log('✅ Called openManual()');
+            } else {
+                log('❌ TANIWHA API not available yet');
+                log('Available: ' + Object.keys(window.TANIWHA || {}));
+            }
+        }
+        
+        function testAPI() {
+            log('=== API TEST ===');
+            log('window.TANIWHA: ' + (window.TANIWHA ? 'Available' : 'Not available'));
+            
+            const root = document.getElementById('taniwha-root');
+            log('taniwha-root element: ' + (root ? 'Found' : 'Not found'));
+            
+            if (root && root.shadowRoot) {
+                log('Shadow root: Available');
+                const buttons = root.shadowRoot.querySelectorAll('button');
+                log('Buttons found: ' + buttons.length);
+                buttons.forEach((btn, i) => {
+                    log(`  Button ${i}: "${btn.textContent}"`);
+                });
+            } else {
+                log('Shadow root: Not available');
+            }
+            
+            if (window.TANIWHA) {
+                log('TANIWHA methods: ' + Object.keys(window.TANIWHA));
+            }
+        }
+        
+        function testWebhook() {
+            log('=== WEBHOOK TEST ===');
+            log('Testing manual token validation...');
+            
+            // Try to get the manual input and fill it
+            const root = document.getElementById('taniwha-root');
+            if (root && root.shadowRoot) {
+                const input = root.shadowRoot.querySelector('input[type="text"]');
+                const submitBtn = root.shadowRoot.querySelector('button');
+                
+                if (input && submitBtn) {
+                    input.value = 'vch_demo123';
+                    submitBtn.click();
+                    log('✅ Submitted test token: vch_demo123');
+                } else {
+                    log('❌ Manual input not found. Click "Force Manual Entry" first.');
+                }
+            } else {
+                log('❌ Widget not ready');
+            }
+        }
+    </script>
+    
+    <!-- Load the widget -->
+    <script defer src="./dist/vendor/zxing.min.js"></script>
+    <script defer src="./dist/taniwha.bundle.js"></script>
+    
+    <script>
+        // Auto-test after load
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                log('=== PAGE LOADED ===');
+                testAPI();
+                log('Auto-opening manual entry...');
+                openManual();
+            }, 1000);
+        });
+        
+        // Log any JavaScript errors
+        window.addEventListener('error', function(e) {
+            log('❌ JavaScript Error: ' + e.message);
+        });
+    </script>
+</body>
+</html>
