@@ -310,12 +310,15 @@
 
     // Public: open the manual entry form programmatically
     openManual(){
-      // Render the idle card, then append the manual row
+      // Ensure we're in idle state first
       this.setState(State.Idle);
-      const card = this.container.querySelector('.taniwha-card');
-      if (card) {
-        this.renderManual(card);
-      }
+      // Give the DOM a moment to update, then render manual
+      setTimeout(() => {
+        const card = this.container.querySelector('.taniwha-card');
+        if (card) {
+          this.renderManual(card);
+        }
+      }, 50);
     }
 
     render(){
@@ -455,6 +458,10 @@
 
     renderManual(card){
       this.setState(State.Idle); // ensure scanning is stopped
+      // Clear existing content first
+      const existingActions = card.querySelector('.taniwha-actions');
+      if (existingActions) existingActions.remove();
+      
       const row = createEl('div', 'taniwha-row taniwha-actions');
       const input = createEl('input', 'taniwha-input taniwha-grow', { type: 'text', placeholder: 'Enter token (vch_...) or URL' });
       const submit = createEl('button', 'taniwha-btn primary'); submit.textContent='Validate';
@@ -465,6 +472,9 @@
       };
       row.appendChild(input); row.appendChild(submit);
       card.appendChild(row);
+      
+      // Focus the input for better UX
+      setTimeout(() => input.focus(), 100);
     }
 
     renderUpload(card){
