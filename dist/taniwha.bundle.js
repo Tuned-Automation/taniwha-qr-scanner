@@ -115,6 +115,20 @@
     const app = new App(container);
     app.render();
 
+    // Add global click handler for button issues
+    shadow.addEventListener('click', function(e) {
+      const target = e.target;
+      if (target && target.tagName === 'BUTTON') {
+        console.log('Button clicked:', target.textContent);
+        if (target.textContent && target.textContent.toLowerCase().includes('enter code instead')) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Forcing manual entry via global handler');
+          app.openManual();
+        }
+      }
+    });
+
     // Expose a tiny control API for integration pages
     try {
       window.TANIWHA = window.TANIWHA || {};
