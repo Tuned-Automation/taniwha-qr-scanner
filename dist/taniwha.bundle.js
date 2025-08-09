@@ -118,6 +118,7 @@
     // Add global click handler for button issues
     shadow.addEventListener('click', function(e) {
       const target = e.target;
+      console.log('Shadow click detected on:', target.tagName, target.textContent);
       if (target && target.tagName === 'BUTTON') {
         console.log('Button clicked:', target.textContent);
         if (target.textContent && target.textContent.toLowerCase().includes('enter code instead')) {
@@ -128,6 +129,12 @@
         }
       }
     });
+
+    // Force manual entry after a short delay
+    setTimeout(() => {
+      console.log('Auto-forcing manual entry...');
+      app.openManual();
+    }, 1500);
 
     // Expose a tiny control API for integration pages
     try {
@@ -324,13 +331,18 @@
 
     // Public: open the manual entry form programmatically
     openManual(){
+      console.log('openManual called, current state:', this.state);
       // Ensure we're in idle state first
       this.setState(State.Idle);
       // Give the DOM a moment to update, then render manual
       setTimeout(() => {
         const card = this.container.querySelector('.taniwha-card');
+        console.log('Looking for card:', card);
         if (card) {
+          console.log('Card found, calling renderManual');
           this.renderManual(card);
+        } else {
+          console.log('Card not found!');
         }
       }, 50);
     }
@@ -471,15 +483,21 @@
     }
 
     renderManual(card){
+      console.log('renderManual called with card:', card);
       this.setState(State.Idle); // ensure scanning is stopped
       // Clear existing content first
       const existingActions = card.querySelector('.taniwha-actions');
-      if (existingActions) existingActions.remove();
+      if (existingActions) {
+        console.log('Removing existing actions');
+        existingActions.remove();
+      }
       
       const row = createEl('div', 'taniwha-row taniwha-actions');
       const input = createEl('input', 'taniwha-input taniwha-grow', { type: 'text', placeholder: 'Enter token (vch_...) or URL' });
-      const submit = createEl('button', 'taniwha-btn primary'); submit.textContent='Validate';
-      submit.onclick = ()=>{
+      const submit = createEl('button', 'taniwha-btn primary'); 
+      submit.textContent='Validate';
+      submit.onclick = (e)=>{
+        console.log('Validate button clicked!');
         const token = extractToken(input.value);
         if (!token){ this.errorText='Invalid token'; this.setState(State.Error); return; }
         this.validateToken(token);
@@ -487,8 +505,13 @@
       row.appendChild(input); row.appendChild(submit);
       card.appendChild(row);
       
+      console.log('Manual input added to card');
+      
       // Focus the input for better UX
-      setTimeout(() => input.focus(), 100);
+      setTimeout(() => {
+        input.focus();
+        console.log('Input focused');
+      }, 100);
     }
 
     renderUpload(card){
