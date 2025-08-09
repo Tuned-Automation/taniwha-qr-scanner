@@ -139,14 +139,24 @@
     // Expose a tiny control API for integration pages
     try {
       window.TANIWHA = window.TANIWHA || {};
-      window.TANIWHA.openManual = () => app.openManual();
+      window.TANIWHA.openManual = () => {
+        console.log('window.TANIWHA.openManual called');
+        return app.openManual();
+      };
+      window.TANIWHA.app = app; // DEBUG: expose app for debugging
       const params = new URLSearchParams(location.search);
       const manualParam = (params.get('taniwha') === 'manual') || (params.get('taniwha_manual') === '1');
       if (window.TANIWHA_AUTO_MANUAL === true || manualParam) {
         // Defer to allow initial render to complete
-        setTimeout(()=> app.openManual(), 0);
+        console.log('Auto-triggering openManual via TANIWHA_AUTO_MANUAL');
+        setTimeout(()=> {
+          console.log('setTimeout firing, calling app.openManual');
+          app.openManual();
+        }, 0);
       }
-    } catch(_) { /* ignore */ }
+    } catch(e) { 
+      console.error('Error in TANIWHA setup:', e);
+    }
   }
 
   async function loadZXing(){
