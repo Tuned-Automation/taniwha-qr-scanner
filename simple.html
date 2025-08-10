@@ -247,6 +247,60 @@
         .toggle-spend:hover {
             background: #218838;
         }
+        .spend-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .spend-overlay.show {
+            display: flex;
+        }
+        .spend-modal {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .spend-modal h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+        }
+        .spend-modal .spend-display {
+            font-size: 32px;
+            color: #007bff;
+            margin: 20px 0;
+        }
+        .spend-modal .numpad {
+            margin: 20px 0;
+        }
+        .spend-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .spend-actions .btn {
+            flex: 1;
+            max-width: 120px;
+        }
+        .btn.skip {
+            background: #6c757d;
+        }
+        .btn.skip:hover {
+            background: #5a6268;
+        }
     </style>
 </head>
 <body>
@@ -269,12 +323,22 @@
         <div>
             <button class="btn" onclick="startCamera()">📷 Start Camera</button>
             <button class="btn secondary" onclick="showManualInput()">⌨️ Enter Code</button>
-            <button class="btn toggle-spend" onclick="toggleSpendInput()">💰 Add Total Spend</button>
         </div>
         
-        <div class="spend-input" id="spendInput">
-            <h3>💰 Total Spend (Optional)</h3>
-            <div class="spend-display" id="spendDisplay">$0.00</div>
+        <div class="manual-input" id="manualInput">
+            <input type="text" id="tokenInput" placeholder="Enter token (vch_...)" />
+            <button class="btn" onclick="validateManualToken()">Validate</button>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <!-- Spend Amount Overlay -->
+    <div class="spend-overlay" id="spendOverlay">
+        <div class="spend-modal">
+            <h2>💰 Total Spend Amount</h2>
+            <p>Enter the total spend for this voucher (optional)</p>
+            <div class="spend-display" id="overlaySpendDisplay">$0.00</div>
             <div class="numpad">
                 <button class="numpad-btn" onclick="addDigit('1')">1</button>
                 <button class="numpad-btn" onclick="addDigit('2')">2</button>
@@ -289,14 +353,11 @@
                 <button class="numpad-btn" onclick="addDigit('0')">0</button>
                 <button class="numpad-btn" onclick="backspace()">⌫</button>
             </div>
+            <div class="spend-actions">
+                <button class="btn skip" onclick="skipSpend()">Skip</button>
+                <button class="btn" onclick="confirmSpend()">Continue</button>
+            </div>
         </div>
-        
-        <div class="manual-input" id="manualInput">
-            <input type="text" id="tokenInput" placeholder="Enter token (vch_...)" />
-            <button class="btn" onclick="validateManualToken()">Validate</button>
-        </div>
-        
-        <div class="result" id="result"></div>
     </div>
 
     <!-- Include jsQR library for QR decoding -->
@@ -310,6 +371,7 @@
         let context = canvas.getContext('2d');
         let scanning = false;
         let totalSpend = 0; // In cents to avoid floating point issues
+        let pendingToken = null; // Store token while waiting for spend input
         
         function setStatus(message) {
             document.getElementById('status').textContent = message;
@@ -373,8 +435,9 @@
                     // Extract token
                     const token = extractToken(code.data);
                     if (token) {
-                        setStatus('QR code found! Validating...');
-                        validateToken(token);
+                        setStatus('QR code found! Enter spend amount...');
+                        pendingToken = token;
+                        showSpendOverlay();
                     } else {
                         setStatus('Invalid QR code');
                         showResult('QR code does not contain a valid voucher token', false);
@@ -463,6 +526,9 @@
                         setStatus('✅ Validation Successful');
                         showResult('✅ Token validated successfully', true);
                     }
+                    
+                    // Reset spend amount after completion
+                    resetSpend();
                 } else {
                     throw new Error(`HTTP ${response.status}`);
                 }
@@ -471,6 +537,9 @@
                 console.error('Validation error:', error);
                 setStatus('❌ Validation Failed');
                 showResult(`❌ Error: ${error.message}`, false);
+                
+                // Reset spend amount after error
+                resetSpend();
             }
         }
         
@@ -484,20 +553,27 @@
             const token = extractToken(input);
             
             if (token) {
-                validateToken(token);
+                setStatus('Token found! Enter spend amount...');
+                pendingToken = token;
+                document.getElementById('manualInput').style.display = 'none';
+                showSpendOverlay();
             } else {
                 showResult('Please enter a valid token starting with vch_', false);
             }
         }
         
-        // Spend input functions
-        function toggleSpendInput() {
-            const spendInput = document.getElementById('spendInput');
-            spendInput.classList.toggle('show');
+        // Spend overlay functions
+        function showSpendOverlay() {
+            document.getElementById('spendOverlay').classList.add('show');
+            updateSpendDisplay();
+        }
+        
+        function hideSpendOverlay() {
+            document.getElementById('spendOverlay').classList.remove('show');
         }
         
         function updateSpendDisplay() {
-            const display = document.getElementById('spendDisplay');
+            const display = document.getElementById('overlaySpendDisplay');
             if (totalSpend === 0) {
                 display.textContent = '$0.00';
             } else {
@@ -519,6 +595,30 @@
         }
         
         function clearSpend() {
+            totalSpend = 0;
+            updateSpendDisplay();
+        }
+        
+        function skipSpend() {
+            totalSpend = 0;
+            hideSpendOverlay();
+            if (pendingToken) {
+                setStatus('Validating token...');
+                validateToken(pendingToken);
+                pendingToken = null;
+            }
+        }
+        
+        function confirmSpend() {
+            hideSpendOverlay();
+            if (pendingToken) {
+                setStatus('Validating token...');
+                validateToken(pendingToken);
+                pendingToken = null;
+            }
+        }
+        
+        function resetSpend() {
             totalSpend = 0;
             updateSpendDisplay();
         }
