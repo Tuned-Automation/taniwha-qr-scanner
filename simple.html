@@ -27,13 +27,114 @@
             color: #666;
             margin-bottom: 30px;
         }
+        .video-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+        }
         #video {
             width: 100%;
             max-width: 400px;
             height: 300px;
             border-radius: 10px;
             background: #000;
-            margin: 20px 0;
+        }
+        .camera-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #00ff00;
+            border-radius: 15px;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        }
+        .camera-frame::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+        }
+        .frame-corners {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+        }
+        .frame-corners::before,
+        .frame-corners::after {
+            content: '';
+            position: absolute;
+            background: #00ff00;
+        }
+        .frame-corners.top-left {
+            top: -5px;
+            left: -5px;
+        }
+        .frame-corners.top-left::before {
+            top: 0;
+            left: 0;
+            width: 30px;
+            height: 4px;
+        }
+        .frame-corners.top-left::after {
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 30px;
+        }
+        .frame-corners.top-right {
+            top: -5px;
+            right: -5px;
+        }
+        .frame-corners.top-right::before {
+            top: 0;
+            right: 0;
+            width: 30px;
+            height: 4px;
+        }
+        .frame-corners.top-right::after {
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 30px;
+        }
+        .frame-corners.bottom-left {
+            bottom: -5px;
+            left: -5px;
+        }
+        .frame-corners.bottom-left::before {
+            bottom: 0;
+            left: 0;
+            width: 30px;
+            height: 4px;
+        }
+        .frame-corners.bottom-left::after {
+            bottom: 0;
+            left: 0;
+            width: 4px;
+            height: 30px;
+        }
+        .frame-corners.bottom-right {
+            bottom: -5px;
+            right: -5px;
+        }
+        .frame-corners.bottom-right::before {
+            bottom: 0;
+            right: 0;
+            width: 30px;
+            height: 4px;
+        }
+        .frame-corners.bottom-right::after {
+            bottom: 0;
+            right: 0;
+            width: 4px;
+            height: 30px;
         }
         .btn {
             background: #007bff;
@@ -90,6 +191,62 @@
             font-weight: bold;
             color: #007bff;
         }
+        .spend-input {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+        .spend-input.show {
+            display: block;
+        }
+        .spend-input h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+        .spend-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 10px 0;
+            min-height: 40px;
+        }
+        .numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 300px;
+            margin: 20px auto;
+        }
+        .numpad-btn {
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .numpad-btn:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+        }
+        .numpad-btn:active {
+            transform: scale(0.95);
+        }
+        .numpad-btn.wide {
+            grid-column: span 2;
+        }
+        .toggle-spend {
+            background: #28a745;
+            font-size: 14px;
+            padding: 10px 20px;
+        }
+        .toggle-spend:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body>
@@ -99,11 +256,39 @@
         
         <div id="status">Ready to scan</div>
         
-        <video id="video" autoplay muted playsinline></video>
+        <div class="video-container">
+            <video id="video" autoplay muted playsinline></video>
+            <div class="camera-frame" id="cameraFrame" style="display: none;">
+                <div class="frame-corners top-left"></div>
+                <div class="frame-corners top-right"></div>
+                <div class="frame-corners bottom-left"></div>
+                <div class="frame-corners bottom-right"></div>
+            </div>
+        </div>
         
         <div>
             <button class="btn" onclick="startCamera()">📷 Start Camera</button>
             <button class="btn secondary" onclick="showManualInput()">⌨️ Enter Code</button>
+            <button class="btn toggle-spend" onclick="toggleSpendInput()">💰 Add Total Spend</button>
+        </div>
+        
+        <div class="spend-input" id="spendInput">
+            <h3>💰 Total Spend (Optional)</h3>
+            <div class="spend-display" id="spendDisplay">$0.00</div>
+            <div class="numpad">
+                <button class="numpad-btn" onclick="addDigit('1')">1</button>
+                <button class="numpad-btn" onclick="addDigit('2')">2</button>
+                <button class="numpad-btn" onclick="addDigit('3')">3</button>
+                <button class="numpad-btn" onclick="addDigit('4')">4</button>
+                <button class="numpad-btn" onclick="addDigit('5')">5</button>
+                <button class="numpad-btn" onclick="addDigit('6')">6</button>
+                <button class="numpad-btn" onclick="addDigit('7')">7</button>
+                <button class="numpad-btn" onclick="addDigit('8')">8</button>
+                <button class="numpad-btn" onclick="addDigit('9')">9</button>
+                <button class="numpad-btn" onclick="clearSpend()">Clear</button>
+                <button class="numpad-btn" onclick="addDigit('0')">0</button>
+                <button class="numpad-btn" onclick="backspace()">⌫</button>
+            </div>
         </div>
         
         <div class="manual-input" id="manualInput">
@@ -124,6 +309,7 @@
         let canvas = document.createElement('canvas');
         let context = canvas.getContext('2d');
         let scanning = false;
+        let totalSpend = 0; // In cents to avoid floating point issues
         
         function setStatus(message) {
             document.getElementById('status').textContent = message;
@@ -147,7 +333,10 @@
                 video.srcObject = stream;
                 video.play();
                 
-                setStatus('Camera ready - point at QR code');
+                // Show camera frame overlay
+                document.getElementById('cameraFrame').style.display = 'block';
+                
+                setStatus('Camera ready - point QR code in the frame');
                 scanning = true;
                 scanQRCode();
                 
@@ -174,11 +363,12 @@
                     console.log('QR Code detected:', code.data);
                     scanning = false;
                     
-                    // Stop camera
+                    // Stop camera and hide frame
                     const stream = video.srcObject;
                     if (stream) {
                         stream.getTracks().forEach(track => track.stop());
                     }
+                    document.getElementById('cameraFrame').style.display = 'none';
                     
                     // Extract token
                     const token = extractToken(code.data);
@@ -241,7 +431,8 @@
                         token: token,
                         ts: Date.now(),
                         ua: navigator.userAgent,
-                        source: 'simple-scanner'
+                        source: 'simple-scanner',
+                        totalSpend: totalSpend > 0 ? (totalSpend / 100).toFixed(2) : null
                     })
                 });
                 
@@ -297,6 +488,39 @@
             } else {
                 showResult('Please enter a valid token starting with vch_', false);
             }
+        }
+        
+        // Spend input functions
+        function toggleSpendInput() {
+            const spendInput = document.getElementById('spendInput');
+            spendInput.classList.toggle('show');
+        }
+        
+        function updateSpendDisplay() {
+            const display = document.getElementById('spendDisplay');
+            if (totalSpend === 0) {
+                display.textContent = '$0.00';
+            } else {
+                display.textContent = '$' + (totalSpend / 100).toFixed(2);
+            }
+        }
+        
+        function addDigit(digit) {
+            // Limit to $999.99
+            if (totalSpend < 99999) {
+                totalSpend = totalSpend * 10 + parseInt(digit);
+                updateSpendDisplay();
+            }
+        }
+        
+        function backspace() {
+            totalSpend = Math.floor(totalSpend / 10);
+            updateSpendDisplay();
+        }
+        
+        function clearSpend() {
+            totalSpend = 0;
+            updateSpendDisplay();
         }
         
         // Auto-start camera on mobile
