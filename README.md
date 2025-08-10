@@ -1,111 +1,110 @@
 # Project Taniwha — Web QR Voucher Scanner
 
-A drop‑in scanner widget for Webflow (or any site). Uses the device camera to read a QR code, extracts a voucher token, sends it to a Make.com webhook, and renders a "Confirmed" or "Denied" result.
+A simple, self-contained web widget for scanning QR voucher codes using device cameras. Designed for easy Webflow integration with Make.com webhook processing.
 
-### Features
-- Shadow DOM widget mounted in `#taniwha-root`
-- Uses `BarcodeDetector` when available; falls back to ZXing
-- Graceful fallbacks: file upload and manual token entry
-- Single bundle (`dist/taniwha.bundle.js`) and stylesheet (`dist/taniwha.css`)
-- Fully namespaced with `taniwha-` to avoid collisions
+## Features
 
-## Quick start
+- 📱 **Camera QR Scanning** - Uses device camera with frame overlay guide
+- 💰 **Optional Spend Tracking** - Number pad input for total spend amount
+- 🔧 **Manual Entry Fallback** - Type voucher codes directly
+- 🌐 **Webhook Integration** - Direct connection to Make.com
+- 📱 **Mobile Optimized** - Responsive design for all devices
+- 📦 **Zero Dependencies** - Single HTML file, works anywhere
+- 🔒 **Privacy Focused** - No data storage, optional spend tracking
 
-1) Configure `src/config.js`:
-- Set `MAKE_WEBHOOK_URL`
-- Optionally adjust UI labels and `ENABLE_WORKER`
+## Quick Start
 
-2) Build (optional) or use prebuilt files in `dist/`.
+### For Webflow Integration (Recommended)
 
-3) Publish to GitHub and reference via a CDN tag in Webflow embed.
-
-### Webflow embed snippet
+Add an **iframe** to your Webflow site:
 
 ```html
-<!-- Project Taniwha scanner embed -->
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" href="REPO_BASE_URL/taniwha.css">
-<div id="taniwha-root"></div>
-<script>window.TANIWHA_REPO_BASE_URL = "REPO_BASE_URL";</script>
-<script defer src="REPO_BASE_URL/taniwha.bundle.js"></script>
+<iframe 
+  src="https://tuned-automation.github.io/taniwha-qr-scanner/simple.html" 
+  width="100%" 
+  height="600" 
+  frameborder="0"
+  style="border-radius: 10px;">
+</iframe>
 ```
 
-Replace `REPO_BASE_URL` with your CDN path (e.g. `https://cdn.jsdelivr.net/gh/ORG/REPO@TAG/dist`).
+### Direct Access
 
-## Config
+Visit the scanner directly: **https://tuned-automation.github.io/taniwha-qr-scanner/simple.html**
 
-Edit `src/config.js`:
+## How It Works
 
-```js
-export const TANIWHA_CONFIG = {
-  MAKE_WEBHOOK_URL: "https://hook.us1.make.com/pzqgij335egnnf1xkhwtaj8qrikkordk",
-  CORS_MODE: "cors",
-  REQUEST_TIMEOUT_MS: 8000,
-  ALLOW_FILE_UPLOAD_FALLBACK: true,
-  ENABLE_WORKER: true,
-  UI: {
-    title: "Scan your voucher",
-    subtitle: "Align the QR within the frame",
-    confirmLabel: "Confirmed",
-    denyLabel: "Denied",
-    errorLabel: "Something went wrong",
-    retryLabel: "Try again",
-  },
-};
-```
+### 1. QR Scanning Flow
+1. Click "📷 Start Camera"
+2. Point camera at QR code (green frame guides alignment)
+3. **Mandatory spend prompt** appears as overlay
+4. Choose to skip or enter spend amount
+5. Webhook fires with token + optional spend data
 
-## Make.com webhook contract
+### 2. Manual Entry Flow
+1. Click "⌨️ Enter Code"
+2. Type voucher token (e.g., `vch_demo123`)
+3. Same spend prompt overlay appears
+4. Webhook fires after user choice
 
-Request JSON:
+### 3. Supported QR Formats
+- Direct tokens: `vch_XXXXXXXX`
+- URL parameters: `https://example.com?token=vch_XXXXXXXX`
+- Batch format: `https://example.com?batch=123&token=vch_XXXXXXXX`
 
+## Webhook Integration
+
+### Request Format
 ```json
 {
-  "token": "vch_8b7K9wP3qA",
-  "ts": 1733779200000,
-  "ua": "<user agent>",
-  "source": "taniwha-web"
+  "token": "vch_demo123",
+  "ts": 1704067200000,
+  "ua": "Mozilla/5.0...",
+  "source": "simple-scanner",
+  "totalSpend": "25.50"
 }
 ```
 
-Response JSON:
-- Confirmed:
-```json
-{ "status": "confirmed", "label": "Confirmed", "name": "…", "email": "…", "meta": { "batch": "…", "redeemedAt": "…" } }
-```
-- Denied:
-```json
-{ "status": "denied", "label": "Denied", "reason": "expired" }
+### Response Handling
+- **JSON Response**: `{"status": "confirmed", "label": "Success!"}`
+- **Plain Text**: `"Accepted"` or `"OK"` → treated as confirmed
+- **Error Codes**: HTTP errors shown to user
+
+## Configuration
+
+### Webhook URL
+Update line 367 in `simple.html`:
+```javascript
+const WEBHOOK_URL = 'https://hook.us1.make.com/YOUR_WEBHOOK_ID';
 ```
 
-Ensure CORS: set `Access-Control-Allow-Origin` to `*` or your Webflow domain.
+### CORS Requirements
+Your Make.com webhook response should include:
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+```
+
+## Files
+
+- **`simple.html`** - Main scanner application (self-contained)
+- **`README.md`** - This documentation
 
 ## Development
 
-- Source: `src/`
-- Build output: `dist/`
-- Vendor fallback: `src/vendor/zxing.min.js` (shim that loads ZXing from jsDelivr by default)
+1. Clone the repository
+2. Edit `simple.html` to customize behavior
+3. Test locally or push to GitHub Pages
+4. Use in Webflow via iframe
 
-You can swap the shim for a vendored copy of ZXing if you prefer hosting everything in this repo.
+## Browser Support
 
-## Accessibility
-
-- Keyboard focusable buttons and inputs, visible focus styles
-- `aria-live="polite"` for status updates
-- Icons have `aria-hidden` or `aria-label` where appropriate
-
-## Security
-
-- No secrets in client code
-- Token validation performed server-side via Make + Airtable
-- Avoid displaying PII; masking applied where shown
-
-## Testing
-
-- iOS Safari and Android Chrome
-- Camera allowed and blocked
-- Slow network / timeout
-- Bad QR content
-- CORS from live Webflow domain
+- **Chrome/Safari**: Full support with native `BarcodeDetector`
+- **Firefox/Edge**: Uses jsQR library fallback
+- **Mobile**: Optimized for iOS/Android cameras
+- **HTTPS Required**: Camera access only works on secure connections
 
 ## License
-MIT
+
+MIT License - Feel free to modify and use in your projects.
