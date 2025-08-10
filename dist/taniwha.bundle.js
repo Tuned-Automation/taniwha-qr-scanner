@@ -85,8 +85,22 @@
         signal: controller.signal,
       });
       if (!res.ok) throw new Error('bad_status_' + res.status);
-      const data = await res.json();
-      return data;
+      
+      const text = await res.text();
+      console.log('Raw response:', text);
+      
+      // Handle plain text responses from Make.com
+      if (text === 'Accepted' || text === 'OK') {
+        return { status: 'confirmed', label: 'Confirmed' };
+      }
+      
+      try {
+        const data = JSON.parse(text);
+        return data;
+      } catch (e) {
+        console.warn('Response not valid JSON, treating as success:', text);
+        return { status: 'confirmed', label: 'Confirmed', raw: text };
+      }
     } finally {
       clearTimeout(timer);
     }
