@@ -130,7 +130,7 @@
     app.render();
 
     // DIRECT MANUAL ENTRY - bypass all the complexity
-    setTimeout(() => {
+    function injectManualInput() {
       console.log('Direct manual entry injection...');
       const card = container.querySelector('.taniwha-card');
       if (card) {
@@ -143,7 +143,7 @@
         const input = createEl('input', 'taniwha-input taniwha-grow', { 
           type: 'text', 
           placeholder: 'Enter token (vch_...) or URL',
-          style: 'padding: 12px; font-size: 16px; border: 2px solid #666; border-radius: 8px; margin-right: 10px;'
+          style: 'padding: 12px; font-size: 16px; border: 2px solid #666; border-radius: 8px; margin-right: 10px; width: 300px;'
         });
         const submit = createEl('button', 'taniwha-btn primary', {
           style: 'padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;'
@@ -167,8 +167,24 @@
         
         input.focus();
         console.log('Manual input directly injected and ready!');
+        return true;
       }
-    }, 500);
+      return false;
+    }
+
+    // Try multiple times with different delays for Webflow compatibility
+    setTimeout(injectManualInput, 100);
+    setTimeout(injectManualInput, 500);
+    setTimeout(injectManualInput, 1000);
+    setTimeout(injectManualInput, 2000);
+
+    // Also auto-inject if buttons are clicked
+    shadow.addEventListener('click', function(e) {
+      if (e.target && e.target.tagName === 'BUTTON' && 
+          e.target.textContent && e.target.textContent.toLowerCase().includes('enter code instead')) {
+        setTimeout(injectManualInput, 100);
+      }
+    });
 
     // Expose a tiny control API for integration pages
     try {
@@ -557,30 +573,89 @@
     }
 
     async decodeImageFile(file){
+      console.log('Decoding image file:', file.name, file.type, file.size);
+      
+      // Try BarcodeDetector first
       if ('BarcodeDetector' in window){
-        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-        const bitmap = await createImageBitmap(file);
-        const codes = await detector.detect(bitmap);
-        if (codes && codes.length){ const token = extractToken(codes[0].rawValue||''); if (token) return token; }
+        try {
+          console.log('Trying BarcodeDetector...');
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+          const bitmap = await createImageBitmap(file);
+          const codes = await detector.detect(bitmap);
+          console.log('BarcodeDetector found codes:', codes.length);
+          if (codes && codes.length){ 
+            const token = extractToken(codes[0].rawValue||''); 
+            if (token) {
+              console.log('BarcodeDetector extracted token:', token);
+              return token; 
+            }
+          }
+        } catch(e) {
+          console.log('BarcodeDetector failed:', e);
+        }
       }
-      // fallback to ZXing via canvas
-      const img = await new Promise((resolve, reject)=>{ const i=new Image(); i.onload=()=>resolve(i); i.onerror=reject; i.src=URL.createObjectURL(file); });
-      const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
-      const ZX = await loadZXing();
-      const luminanceSource = new ZX.HTMLCanvasElementLuminanceSource(canvas);
-      const binarizer = new ZX.CommonHybridBinarizer(luminanceSource);
-      const bitmap = new ZX.BinaryBitmap(binarizer);
+      
+      // ZXing fallback with improved error handling
       try {
-        const result = ZX.BrowserQRCodeReader ? ZX.BrowserQRCodeReader.prototype.decodeBitmap(bitmap) : ZX.MultiFormatReader.prototype.decode(bitmap);
-      } catch(_){}
-      try {
-        const reader = new (ZX.BrowserQRCodeReader || ZX.BrowserMultiFormatReader)();
-        const result = await reader.decodeFromImageElement(img);
-        const text = result && (result.text || result.getText && result.getText());
-        const token = extractToken(text||'');
-        return token;
-      } catch(err){ return null; }
+        console.log('Loading ZXing for image decode...');
+        const ZX = await loadZXing();
+        console.log('ZXing loaded successfully');
+        
+        const blobUrl = URL.createObjectURL(file);
+        
+        // Try direct image decode first
+        try {
+          console.log('Trying ZXing decodeFromImageUrl...');
+          const reader = new (ZX.BrowserQRCodeReader || ZX.BrowserMultiFormatReader)();
+          if (reader.decodeFromImageUrl) {
+            const result = await reader.decodeFromImageUrl(blobUrl);
+            const text = result && (result.text || (result.getText && result.getText()));
+            if (text) {
+              const token = extractToken(text);
+              if (token) {
+                console.log('ZXing extracted token:', token);
+                URL.revokeObjectURL(blobUrl);
+                return token;
+              }
+            }
+          }
+        } catch(e) {
+          console.log('ZXing decodeFromImageUrl failed:', e);
+        }
+        
+        // Try canvas method as backup
+        try {
+          console.log('Trying ZXing canvas method...');
+          const img = await new Promise((resolve, reject)=>{ 
+            const i=new Image(); 
+            i.onload=()=>resolve(i); 
+            i.onerror=reject; 
+            i.src=blobUrl; 
+          });
+          
+          const reader = new (ZX.BrowserQRCodeReader || ZX.BrowserMultiFormatReader)();
+          const result = await reader.decodeFromImageElement(img);
+          const text = result && (result.text || (result.getText && result.getText()));
+          if (text) {
+            const token = extractToken(text);
+            if (token) {
+              console.log('ZXing canvas extracted token:', token);
+              URL.revokeObjectURL(blobUrl);
+              return token;
+            }
+          }
+        } catch(e) {
+          console.log('ZXing canvas method failed:', e);
+        }
+        
+        URL.revokeObjectURL(blobUrl);
+        console.log('All image decode methods failed');
+        return null;
+        
+      } catch(err) { 
+        console.error('ZXing loading error:', err);
+        return null; 
+      }
     }
 
     async onToken(token){
