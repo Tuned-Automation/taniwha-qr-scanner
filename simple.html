@@ -183,6 +183,53 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .result-details {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            text-align: left;
+            font-weight: normal;
+            line-height: 1.5;
+        }
+        .result-details h4 {
+            margin: 0 0 10px 0;
+            color: #155724;
+            font-size: 16px;
+            text-align: center;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .detail-value {
+            color: #212529;
+            text-align: right;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
         .hidden {
             display: none;
         }
@@ -379,15 +426,95 @@
         let totalSpend = 0; // In cents to avoid floating point issues
         let pendingToken = null; // Store token while waiting for spend input
         
-        function setStatus(message) {
-            document.getElementById('status').textContent = message;
+        function setStatus(message, showLoading = false) {
+            const statusEl = document.getElementById('status');
+            if (showLoading) {
+                statusEl.innerHTML = `<span class="loading-spinner"></span>${message}`;
+            } else {
+                statusEl.textContent = message;
+            }
         }
         
-        function showResult(message, isSuccess = true) {
+        function showResult(message, isSuccess = true, responseData = null) {
             const result = document.getElementById('result');
-            result.textContent = message;
             result.className = 'result ' + (isSuccess ? 'success' : 'error');
+            
+            // Main message
+            result.innerHTML = `<div style="text-align: center; font-weight: bold;">${message}</div>`;
+            
+            // Add detailed data if available
+            if (responseData && isSuccess) {
+                const details = createDetailsHTML(responseData);
+                if (details) {
+                    result.innerHTML += details;
+                }
+            }
+            
             result.style.display = 'block';
+        }
+        
+        function createDetailsHTML(data) {
+            const details = [];
+            
+            // Map common webhook response fields to user-friendly labels
+            const fieldMapping = {
+                'firstName': 'First Name',
+                'first_name': 'First Name',
+                'lastname': 'Last Name',
+                'last_name': 'Last Name',
+                'lastName': 'Last Name',
+                'email': 'Email',
+                'emailAddress': 'Email',
+                'email_address': 'Email',
+                'voucherUses': 'Voucher Uses',
+                'voucher_uses': 'Voucher Uses',
+                'uses': 'Uses',
+                'usesRemaining': 'Uses Remaining',
+                'uses_remaining': 'Uses Remaining',
+                'balance': 'Balance',
+                'voucherBalance': 'Voucher Balance',
+                'voucher_balance': 'Voucher Balance',
+                'expiryDate': 'Expires',
+                'expiry_date': 'Expires',
+                'expires': 'Expires',
+                'phone': 'Phone',
+                'phoneNumber': 'Phone',
+                'phone_number': 'Phone',
+                'company': 'Company',
+                'organization': 'Organization',
+                'label': 'Status',
+                'reason': 'Reason',
+                'totalSpend': 'Total Spent',
+                'total_spend': 'Total Spent'
+            };
+            
+            // Extract and format relevant fields
+            Object.keys(data).forEach(key => {
+                const label = fieldMapping[key] || key.charAt(0).toUpperCase() + key.slice(1);
+                const value = data[key];
+                
+                // Skip internal fields and null/empty values
+                if (value && 
+                    !['status', 'raw', 'ts', 'ua', 'source'].includes(key) &&
+                    typeof value !== 'object') {
+                    details.push({ label, value });
+                }
+            });
+            
+            if (details.length === 0) return null;
+            
+            let html = '<div class="result-details"><h4>📋 Voucher Details</h4>';
+            details.forEach(detail => {
+                html += `
+                    <div class="detail-row">
+                        <span class="detail-label">${detail.label}:</span>
+                        <span class="detail-value">${detail.value}</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            return html;
         }
         
         async function startCamera() {
@@ -489,7 +616,7 @@
         
         async function validateToken(token) {
             try {
-                setStatus('Validating token...');
+                setStatus('Validating voucher...', true);
                 
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
@@ -507,7 +634,7 @@
                 
                 if (response.ok) {
                     const text = await response.text();
-                    console.log('Response:', text);
+                    console.log('Webhook Response:', text);
                     
                     // Handle different response formats
                     let result;
@@ -516,21 +643,21 @@
                     } catch (e) {
                         // Plain text response
                         if (text === 'Accepted' || text === 'OK') {
-                            result = { status: 'confirmed', label: 'Confirmed' };
+                            result = { status: 'confirmed', label: 'Voucher Accepted' };
                         } else {
-                            result = { status: 'confirmed', label: 'Confirmed', raw: text };
+                            result = { status: 'confirmed', label: 'Voucher Accepted', raw: text };
                         }
                     }
                     
                     if (result.status === 'confirmed') {
                         setStatus('✅ Voucher Confirmed');
-                        showResult(`✅ ${result.label || 'Confirmed'}`, true);
+                        showResult(`✅ ${result.label || 'Voucher Confirmed'}`, true, result);
                     } else if (result.status === 'denied') {
                         setStatus('❌ Voucher Denied');
-                        showResult(`❌ ${result.label || 'Denied'}: ${result.reason || ''}`, false);
+                        showResult(`❌ ${result.label || 'Voucher Denied'}${result.reason ? ': ' + result.reason : ''}`, false, result);
                     } else {
                         setStatus('✅ Validation Successful');
-                        showResult('✅ Token validated successfully', true);
+                        showResult('✅ Voucher processed successfully', true, result);
                     }
                     
                     // Reset spend amount after completion
